@@ -1,0 +1,293 @@
+//game.c
+void context(void)
+{
+	initgraph(500, 500);					// 初始化图形模式
+	setorigin(0, 500);						//重新定义原点
+	setaspectratio(1, -1);					//将Y上半部分设定为正半轴
+	setlinestyle(PS_SOLID);					//设定画线样式为虚线
+	setlinecolor(WHITE);					//线条颜色为白色
+	for (size_t i = 0; i <= 25; i++)			         //画出游戏区域网格线，宽300，高500
+		line(0, 0 + 20 * i, 300, 0 + 20 * i);            //横线
+	for (size_t i = 0; i <= 15; i++)
+		line(0 + 20 * i, 0, 0 + 20 * i, 500);			 //竖线
+	for (size_t i = 0; i <= 4; i++)						 //画出下一个方块网格线，宽80，高80
+		line(370, 300 + 20 * i, 450, 300+20 * i);		 //横线
+	for (size_t i = 0; i <= 4; i++)
+		line(370 + 20 * i, 300, 370 + 20 * i, 380);		//竖线
+	setaspectratio(1, 1);
+	settextstyle(25, 0, _T("Consolas"));
+	outtextxy(310, -430, _T("SCORE:0  points"));
+	outtextxy(310, -410, _T("下一个方块："));
+	outtextxy(310, -270, _T("w 转换方向"));
+	outtextxy(310, -240, _T("s 加快下降速度"));
+	outtextxy(310, -210, _T("a 左移"));
+	outtextxy(310, -180, _T("d 右移"));
+	outtextxy(310, -150, _T("h 重启"));
+	setaspectratio(1, -1);
+}
+
+//main.c
+unsigned short Diamond[7][4] = {
+		  {0x000f,0x8888,0x000f,0x8888},
+		  {0x008E,0x0c88,0x00E2,0x044c},
+		  {0x002E,0x088c,0x00E8,0x0c44},
+		  {0x00CC,0x00CC,0x00CC,0x00CC},
+		  {0x006C,0x08c4,0x006c,0x08c4},
+		  {0x004E,0x08c8,0x00E4,0x04c4},
+		  {0x00C6,0x04c8,0x00c6,0x04c8} };
+//game.h
+//方块的坐标
+typedef struct LOCATE
+{
+	int x;
+	int y;
+} Location;
+ 
+ 
+//俄罗斯方块展示函数
+void DisplayDiamond(unsigned short diamond, Location Loca, int cur_color);
+
+int color[15][35] = { 0 };  //定义网格属性
+ 
+//俄罗斯方块展示函数
+void DisplayDiamond(unsigned short diamond, Location Loca, int draw_color)
+{
+	int num_x, num_y;
+	int k = 0;
+		setfillcolor(draw_color);	    //设定填充颜色		
+		for (int i = 3; i >= 0; i--)    //四行填充
+		{
+			for (int j = 0; j < 4; j++) //四列填充
+			{
+				if (diamond & (0x8000 >> k))//判断格子是否存在1,20是格子边长
+				{
+					fillrectangle(Loca.x + 20 * j, Loca.y + 20 * i, Loca.x + 20 * (j + 1), Loca.y + 20 * (i + 1));
+					num_x = Loca.x / 20 + j;
+					num_y = Loca.y / 20 + i;
+					color[num_x][num_y] = draw_color;
+				 }	
+				k++;
+			}
+		}
+}
+//main.c
+while (MoveEnable(CurDiamond, CurLocation, EnableDown) == 0)
+		{
+			DisplayDiamond(CurDiamond, CurLocation, BLACK);      //先擦除
+			CurLocation.y -= 20;
+			DisplayDiamond(CurDiamond, CurLocation, cur_color);  //再更新
+			Sleep(speed);
+ 
+			if (_kbhit())					//如果敲击了键盘，就会返回1
+			{
+				userHit = _getch();			//获取敲击键盘字符
+				Keyboard(userHit, &row, &column, &CurLocation, &speed);
+				CurDiamond = Diamond[row][column];
+			}
+			
+		}
+//game.h
+#define EnableDown 1
+#define EnableLeft 2
+#define EnableRight 3
+ 
+//game.c
+bool MoveEnable(unsigned short diamond, Location CurLocation, int direction)
+{
+	bool stop=0;
+	int num_x,num_y;
+	switch (direction)
+	{
+	case EnableDown:    //判断是否可以下移
+	{
+		for (int i = 0; i < GetWidth(diamond); i++)		//对每一列进行判断
+		{
+			for (int j = 0; j < GetHigh(diamond); j++)   //对该列每一行进行判断
+			{
+ 
+				num_x = CurLocation.x / 20 + i ;		 //小方格的列序号
+				num_y = CurLocation.y / 20 + j ;		 //小方格的行序号
+				if( diamond & (0x0001<<(3-i+4*j)) )		 
+                //如果该小方格是为1，即方块该列最底部
+				{ 
+					if ((color[num_x][num_y - 1] != BLACK) || (CurLocation.y == 0))	
+                    //如果下面那个小方格也是非黑色，就要停止
+					{
+						stop = 1;
+					}
+					break;	        //找到底部小格子即可跳出循环，进行下一列的判断
+				}	
+			}
+			if (stop == 1)  break;	//既然已经要停止了，就不用去判断下一列
+		}
+		break;
+	}
+	}
+	return stop;
+}
+//game.c
+//响应键盘函数
+void Keyboard(char userHit, int *row, int *column, Location *CurLocation, int *speed)
+{
+	unsigned short Diamond[7][4] = {
+		  {0x000f,0x8888,0x000f,0x8888},
+		  {0x008E,0x0c88,0x00E2,0x044c},
+		  {0x002E,0x088c,0x00E8,0x0c44},
+		  {0x00CC,0x00CC,0x00CC,0x00CC},
+		  {0x006C,0x08c4,0x006c,0x08c4},
+		  {0x004E,0x08c8,0x00E4,0x04c4},
+		  {0x00C6,0x04c8,0x00c6,0x04c8} };
+	unsigned short CurDiamond;
+	switch(userHit)
+	{
+		case 'w': //改变方向
+		{
+			CurDiamond = Diamond[*row][*column];
+			DisplayDiamond(CurDiamond, *CurLocation, BLACK);    //先擦除
+			if ((*column) < 3)
+				(*column)++;
+			else
+				(*column) = 0;
+			CurDiamond = Diamond[*row][*column];			
+			DisplayDiamond(CurDiamond, *CurLocation, cur_color);  //再更新
+			break;
+		}
+		
+		case 's': //增加下降速度
+		{
+			if ((*speed) > 50 )
+			{
+				(*speed) -= 50;
+			}			
+			break;
+		}
+		
+		case 'h':  //重新开始
+		{
+			for (size_t i =0; i < 25; i++)			//25行
+			{
+				for (size_t j = 0; j < 15; j++)		//15列
+				{
+					color[j][i] = BLACK;		 //每一个格子填充黑色
+					setfillcolor(color[j][i]);
+					fillrectangle(20 * j, 20 * i, 20 * (j + 1), 20 * (i + 1));
+				}
+			}
+			break;
+		}
+ 
+	}
+}
+
+//main.c
+	unsigned short CurDiamond; //下一个方块
+	unsigned short NewDiamond; //下一个方块
+	
+	context();								//画出游戏背景
+	row = 0;
+	column = 0;
+	CurDiamond = Diamond[row][column];
+	cur_color = BLUE;
+	while(1)
+	{ 		
+		RandomDiamond(&new_row, &new_column, &CurLocation, &speed); //随机生成方块
+		NewDiamond = Diamond[new_row][new_column];
+		DisplayDiamond(NewDiamond, { 370,300 }, new_color);  //画出下一块方块
+ 
+		while (MoveEnable(CurDiamond, CurLocation, EnableDown) == 0)
+		{
+			//自由下落+按键响应代码
+			
+		}
+		row = new_row;
+		column = new_column;
+		cur_color = new_color;
+		CurDiamond = Diamond[row][column];
+		DisplayDiamond(NewDiamond, { 370,300 }, BLACK);    //先擦除
+		FullJudge();
+	}
+//game.c
+void RandomDiamond(int* row, int* column, Location* CurLocation, int* speed)
+{
+	static int num = 0;
+	int color_Diamond[7] = { BLUE, GREEN, CYAN, RED, MAGENTA, BROWN, YELLOW };
+	*row = rand() % 7;			//生成0到6随机数
+	*column = rand() % 4;		//生成0到3随机数	
+	//*row = 0;
+	*CurLocation = { 140,500 };
+	*speed = 200;
+	if (num == 6)	 num = 0;
+	new_color = color_Diamond[num++];
+}
+//game.c
+void FullJudge()
+{
+	int color_num=0;
+	for (size_t i = 0; i < 25; i++)    //25行
+	{
+		for (size_t j = 0; j < 15; j++) //15列
+			if (color[j][i] != BLACK) color_num++;		
+ 
+		if (color_num == 15)			//遇到满行
+		{
+			setfillcolor(BLACK);		     //设定填充黑色
+			for (size_t j = 0; j < 15; j++)  //填充该行15列,即消除该行		
+			{ 
+				fillrectangle(j*20, i*20 ,(j+1)*20, (i+1)*20);
+				color[j][i] = BLACK;
+			}
+ 
+			Updata(i);//更新
+			i--;    //重新判断该行
+		}
+		color_num = 0;
+	}
+}
+ 
+//消除满行后，上面往后降，重新判断该行
+void Updata(int row)  
+{
+	//从满行的第row行开始
+	for (size_t i = row; i < 25; i++)
+	{
+		for (size_t j = 0; j < 15; j++)		//15列
+		{
+			color[j][i] = color[j][i + 1]; //每一个格子等于上面格子的颜色
+			setfillcolor(color[j][i]);
+			fillrectangle( 20 * j, 20 * i, 20 * (j + 1), 20 * (i + 1));
+		}	
+	}
+	static int game_point = 0;
+	game_point++;   //更新分数
+	setaspectratio(1, 1);
+	TCHAR s1[5];
+	settextstyle(25, 0, _T("Consolas"));
+	swprintf_s(s1, _T("%d"), game_point);
+	outtextxy(380, -426, s1);
+	setaspectratio(1, -1);
+}
+//game.c
+//计算方块的真实高度
+int GetHigh(unsigned short diamond)
+{
+	int a=0;
+	for (size_t i = 0; i < 4; i++)
+	{
+		if ( (diamond & (0x000f << 4 * i)) > 0)
+			a++;
+	}
+	return a;
+}
+ 
+ 
+//计算方块的真实宽度
+int GetWidth(unsigned short diamond)
+{
+	int a = 0;
+	for (size_t i = 0; i < 4; i++)
+	{
+		if ((diamond & (0x8888 >>  i)) > 0)
+			a++;
+	}
+	return a;
+}
